@@ -1,0 +1,4 @@
+to install the djitellopy
+
+create an venv
+-pip3 install numpy av

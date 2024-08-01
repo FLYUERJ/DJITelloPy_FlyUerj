@@ -100,9 +100,12 @@ class Tello:
     def __init__(self,
                  host=TELLO_IP,
                  retry_count=RETRY_COUNT,
-                 vs_udp=VS_UDP_PORT):
+                 vs_udp=VS_UDP_PORT,
+                 wifi_interface : str = None):
 
         global threads_initialized, client_socket, drones
+        
+        self.wifi_interface = wifi_interface
 
         self.address = (host, Tello.CONTROL_UDP_PORT)
         self.stream_on = False
@@ -113,13 +116,16 @@ class Tello:
         if not threads_initialized:
             # Run Tello command responses UDP receiver on background
             client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            if wifi_interface:
+                client_socket.setsockopt(socket.SOL_SOCKET, 25, wifi_interface.encode())
+
             client_socket.bind(("", Tello.CONTROL_UDP_PORT))
             response_receiver_thread = Thread(target=Tello.udp_response_receiver)
             response_receiver_thread.daemon = True
             response_receiver_thread.start()
 
             # Run state UDP receiver on background
-            state_receiver_thread = Thread(target=Tello.udp_state_receiver)
+            state_receiver_thread = Thread(target=Tello.udp_state_receiver, args=(wifi_interface,))
             state_receiver_thread.daemon = True
             state_receiver_thread.start()
 
@@ -171,13 +177,16 @@ class Tello:
                 break
 
     @staticmethod
-    def udp_state_receiver():
+    def udp_state_receiver(wifi_interface : str = None):
         """Setup state UDP receiver. This method listens for state information from
         Tello. Must be run from a background thread in order to not block
         the main thread.
         Internal method, you normally wouldn't call this yourself.
         """
         state_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        if wifi_interface:
+            state_socket.setsockopt(socket.SOL_SOCKET, 25, wifi_interface.encode())
+        
         state_socket.bind(("", Tello.STATE_UDP_PORT))
 
         while True:
